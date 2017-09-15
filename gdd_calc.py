@@ -84,7 +84,7 @@ def myfunction(index,rasters):
     
     gdd = 0
     if l1 != 65535:
-        gdd=c2[l2,index]-c2[l1-1,index]
+        gdd=c2[l2-1,index]-c2[l1-2,index]
     return gdd
 
 
