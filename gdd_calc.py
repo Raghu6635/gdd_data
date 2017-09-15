@@ -40,18 +40,6 @@ import random,sys,getopt
 from multiprocessing import Pool
 
 
-# In[4]:
-        
-
-def dataframe_extraction(r,row,col):
-    data_frame = (pd.DataFrame({'GDD':r[:,row,col]}))
-    data_frame['SUM'] = data_frame.GDD.cumsum()
-   
-    return data_frame
-
-
-
-
 # In[29]:
 
 
@@ -84,7 +72,7 @@ def initialize_rasters(path1,path2,path3):
 def myfunction(index,rasters):
     a=rasters[0]
     b=rasters[1]
-    c=rasters[2]
+    c2=rasters[2]
     tot_cols=a.shape[2]
     tot_rows=a.shape[1]
     #print("Tot rows: ",tot_rows," Tot cols: ",tot_cols)
@@ -96,9 +84,7 @@ def myfunction(index,rasters):
     
     gdd = 0
     if l1 != 65535:
-        df=dataframe_extraction(c,row,col)
-        gdd=df.SUM[l2-1]-df.SUM[l1-2]
-
+        gdd=c2[l2,index]-c2[l1-1,index]
     return gdd
 
 
@@ -157,10 +143,13 @@ def main(argv):
         elif opt in ("-s","--side"):
             side=int(arg)    
 
-    src=rasterio.open('emergence_harvesting_data/data_480/emergence_corn_2012_480.tif')
-    a,b,c,tot_rows,tot_cols=initialize_rasters('emergence_harvesting_data/data_480/emergence_corn_2012_480.tif','emergence_harvesting_data/data_480/harvesting_corn_2012_480.tif','gdd_data/gdd_corn_2012.tif')
-    y=[(a,b,c)]*tot_rows*tot_cols
-
+    a,b,c,tot_rows,tot_cols=initialize_rasters('emergence_harvesting_data/data_480/emergence_corn_2012_480.tif','emergence_harvesting_data/data_480/harvesting_corn_2012_480.tif','gdd_data/gdd_corn_2012.tif')    
+    
+    c1 = np.reshape(c,(365,tot_rows*tot_cols))
+    c2 = np.cumsum(c1,axis=0)
+        
+    y=[(a,b,c2)]*tot_rows*tot_cols
+        
     ind=range(tot_rows*tot_cols)
     l=list()
     l=list(list(zip(ind,y))[:])
@@ -183,6 +172,8 @@ def main(argv):
             ind_end=ind_start+index_input
 
     print("ind_start: ",ind_start," ind_end: ",ind_end)
+    
+    values = list()
     if(run=="p"):
         with Pool(processes=num_proc) as pool:
             #ind_start=988800
@@ -198,23 +189,26 @@ def main(argv):
     #print(pairs)
 
 
+    src=rasterio.open('emergence_harvesting_data/data_480/emergence_corn_2012_480.tif')
     profile=src.profile
-    profile.update(count=1)
+    profile.update(dtype=rasterio.float64, count=1)
     print(profile)
-    gdd=np.zeros(shape=a.shape)
+    gdd=np.zeros(shape=a[0].shape)
+    print(gdd.shape)
     for index in list(range(ind_start,ind_end)):
         row=int(index/tot_cols)
         col=index-(tot_cols*row)
-        gdd[0][row][col]=values[index-ind_start]
+        gdd[row][col]=values[index-ind_start]
            
         
-    with rasterio.open('cummulative_gdd_output/test/gdd_emergence_harvest.tif', 'w', **profile) as dst:
-            dst.write(gdd.astype(rasterio.uint16), 1)
+    with rasterio.open('cummulative_gdd_output/test_gdd_emergence_harvest.tif', 'w', **profile) as dst:
+        dst.write(gdd.astype(rasterio.float64), 1)
     
 
 
 if __name__=="__main__":
     main(sys.argv[1:])
+
 
 
 # In[ ]:
